@@ -133,11 +133,11 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 		[alert addButtonWithTitle:kStrMoveApplicationButtonMove];
 
 		// Add deny button
-		NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
-		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
+//		NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
+//		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
 
 		// Setup suppression button
-		[alert setShowsSuppressionButton:YES];
+		[alert setShowsSuppressionButton:NO];
 
 		if (PFUseSmallAlertSuppressCheckbox) {
 			NSCell *cell = [[alert suppressionButton] cell];
