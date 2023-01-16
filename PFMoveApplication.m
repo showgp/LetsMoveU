@@ -133,8 +133,8 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 		[alert addButtonWithTitle:kStrMoveApplicationButtonMove];
 
 		// Add deny button
-//		NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
-//		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
+		NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
+		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
 
 		// Setup suppression button
 		[alert setShowsSuppressionButton:NO];
@@ -217,7 +217,10 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 	// Save the alert suppress preference if checked
 	else if ([[alert suppressionButton] state] == NSOnState) {
 		[[NSUserDefaults standardUserDefaults] setBool:YES forKey:AlertSuppressKey];
-	}
+    } else {
+        // Just exit
+        exit(0);
+    }
 
 	MoveInProgress = NO;
 	return;
