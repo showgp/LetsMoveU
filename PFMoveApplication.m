@@ -218,11 +218,11 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 	else if ([[alert suppressionButton] state] == NSOnState) {
 		[[NSUserDefaults standardUserDefaults] setBool:YES forKey:AlertSuppressKey];
     } else {
-#if DEBUG
-		NSLog(@"INFO -- Debug Mode, Nothing Happens");
-#else
+#if RELEASE
 		// Exit the APP when user clicked the second button.
 		exit(0);
+#else
+		NSLog(@"INFO -- Debug Or Profile Mode, Nothing Happens");
 #endif
     }
 
