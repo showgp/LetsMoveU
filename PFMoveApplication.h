@@ -20,6 +20,8 @@ extern "C" {
  Call from \c NSApplication's delegate method \c -applicationWillFinishLaunching: method. */
 void PFMoveToApplicationsFolderIfNecessary(void);
 
+void PFSetAlertContent(const char* title, const char* description, const char* btnTitle);
+
 /**
  Check whether an app move is currently in progress.
  Returns YES if LetsMove is currently in-progress trying to move the app to the Applications folder, or NO otherwise.

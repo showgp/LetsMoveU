@@ -62,6 +62,17 @@ static BOOL CopyBundle(NSString *srcPath, NSString *dstPath);
 static NSString *ShellQuotedString(NSString *string);
 static void Relaunch(NSString *destinationPath);
 
+static NSString* customTitle = @"";
+static NSString* customDescription = @"";
+static NSString* customOkBtnTitle = @"";
+
+void PFSetAlertContent(const char* title, const char* description, const char* btnTitle) {
+	if (title == nil || description == nil || btnTitle == nil) return;
+	customTitle = [NSString stringWithUTF8String:title];
+	customDescription = [NSString stringWithUTF8String:description];
+	customOkBtnTitle = [NSString stringWithUTF8String:btnTitle];
+}
+
 // Main worker function
 void PFMoveToApplicationsFolderIfNecessary(void) {
 
@@ -114,6 +125,9 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 		NSString *informativeText = nil;
 
 		[alert setMessageText:(installToUserApplications ? kStrMoveApplicationQuestionTitleHome : kStrMoveApplicationQuestionTitle)];
+		if (customTitle != nil && customTitle.length > 0) {
+			[alert setMessageText:customTitle];
+		}
 
 		informativeText = kStrMoveApplicationQuestionMessage;
 
@@ -129,12 +143,22 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 
 		[alert setInformativeText:informativeText];
 
+		if (customDescription != nil && customDescription.length > 0) {
+			[alert setInformativeText:customDescription];
+		}
+
+		NSString* btnMoveTitle = kStrMoveApplicationButtonMove;
+
+		if (customOkBtnTitle != nil && customOkBtnTitle.length > 0) {
+			btnMoveTitle = customOkBtnTitle;
+		}
+
 		// Add accept button
-		[alert addButtonWithTitle:kStrMoveApplicationButtonMove];
+		[alert addButtonWithTitle:btnMoveTitle];
 
 		// Add deny button
-		NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
-		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
+//		NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
+//		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
 
 		// Setup suppression button
 		[alert setShowsSuppressionButton:NO];
