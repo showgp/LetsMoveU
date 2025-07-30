@@ -63,13 +63,13 @@ static NSString *ShellQuotedString(NSString *string);
 static void Relaunch(NSString *destinationPath);
 
 // Main worker function
-void PFMoveToApplicationsFolderIfNecessary(void) {
+void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 
 	// Make sure to do our work on the main thread.
 	// Apparently Electron apps need this for things to work properly.
 	if (![NSThread isMainThread]) {
 		dispatch_async(dispatch_get_main_queue(), ^{
-			PFMoveToApplicationsFolderIfNecessary();
+			PFMoveToApplicationsFolderIfNecessary(customized);
 		});
 		return;
 	}
@@ -112,8 +112,11 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 	NSAlert *alert = [[[NSAlert alloc] init] autorelease];
 	{
 		NSString *informativeText = nil;
-
-		[alert setMessageText:(installToUserApplications ? kStrMoveApplicationQuestionTitleHome : kStrMoveApplicationQuestionTitle)];
+		if (@available(macOS 15.5, *)) {
+			[alert setMessageText:(kStrMoveApplicationQuestionTitle)];
+		} else {
+			[alert setMessageText:(installToUserApplications ? kStrMoveApplicationQuestionTitleHome : kStrMoveApplicationQuestionTitle)];
+		}
 
 		informativeText = kStrMoveApplicationQuestionMessage;
 
@@ -127,7 +130,11 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 			informativeText = [informativeText stringByAppendingString:kStrMoveApplicationQuestionInfoInDownloadsFolder];
 		}
 
-		[alert setInformativeText:informativeText];
+		if (@available(macOS 15.5, *)) {
+			[alert setInformativeText:customized];
+		} else {
+			[alert setInformativeText:informativeText];
+		}
 
 		// Add accept button
 		[alert addButtonWithTitle:kStrMoveApplicationButtonMove];
@@ -136,8 +143,17 @@ void PFMoveToApplicationsFolderIfNecessary(void) {
 		NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
 		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
 
-		// Setup suppression button
-		[alert setShowsSuppressionButton:YES];
+		if (@available(macOS 15.5, *)) {
+			[alert setInformativeText:customized];
+
+			// Setup suppression button
+			[alert setShowsSuppressionButton:NO];
+		} else {
+			[alert setInformativeText:informativeText];
+
+			// Setup suppression button
+			[alert setShowsSuppressionButton:YES];
+		}
 
 		if (PFUseSmallAlertSuppressCheckbox) {
 			NSCell *cell = [[alert suppressionButton] cell];

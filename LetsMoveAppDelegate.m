@@ -22,8 +22,8 @@
 	// any first run UI by putting it after this call.
     NSLog(@"applicationWillFinishlaunching: %@", aNotification);
 	
-	PFMoveToApplicationsFolderIfNecessary();
-	
+	PFMoveToApplicationsFolderIfNecessary(@"abc123");
+
 	[window center];
 	[window makeKeyAndOrderFront:self];
 }
