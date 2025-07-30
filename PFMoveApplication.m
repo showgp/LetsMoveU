@@ -130,12 +130,6 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 			informativeText = [informativeText stringByAppendingString:kStrMoveApplicationQuestionInfoInDownloadsFolder];
 		}
 
-		if (@available(macOS 15.5, *)) {
-			[alert setInformativeText:customized];
-		} else {
-			[alert setInformativeText:informativeText];
-		}
-
 		// Add accept button
 		[alert addButtonWithTitle:kStrMoveApplicationButtonMove];
 
@@ -144,7 +138,7 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
 
 		if (@available(macOS 15.5, *)) {
-			[alert setInformativeText:customized];
+			[alert setInformativeText:(customized == nil || customized.length == 0) ? informativeText : customized];
 
 			// Setup suppression button
 			[alert setShowsSuppressionButton:NO];
