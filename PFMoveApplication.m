@@ -51,6 +51,7 @@ static BOOL MoveInProgress = NO;
 // Helper functions
 static NSString *PreferredInstallLocation(BOOL *isUserDirectory);
 static BOOL IsInApplicationsFolder(NSString *path);
+static BOOL IsInSystemApplicationsFolder(NSString *path);
 static BOOL IsInDownloadsFolder(NSString *path);
 static BOOL IsApplicationAtPathRunning(NSString *path);
 static BOOL IsApplicationAtPathNested(NSString *path);
@@ -64,18 +65,22 @@ static void Relaunch(NSString *destinationPath);
 
 // Main worker function
 void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
+	PFMoveToApplicationsFolderIfNecessaryWithOptions(customized, NO);
+}
+
+void PFMoveToApplicationsFolderIfNecessaryWithOptions(NSString* customized, BOOL forceMove) {
 
 	// Make sure to do our work on the main thread.
 	// Apparently Electron apps need this for things to work properly.
 	if (![NSThread isMainThread]) {
 		dispatch_async(dispatch_get_main_queue(), ^{
-			PFMoveToApplicationsFolderIfNecessary(customized);
+			PFMoveToApplicationsFolderIfNecessaryWithOptions(customized, forceMove);
 		});
 		return;
 	}
 	
 	// Skip if user suppressed the alert before
-	if ([[NSUserDefaults standardUserDefaults] boolForKey:AlertSuppressKey]) return;
+	if (!forceMove && [[NSUserDefaults standardUserDefaults] boolForKey:AlertSuppressKey]) return;
 
 	// Path of the bundle
 	NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
@@ -85,7 +90,8 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 
 	// Skip if the application is already in some Applications folder,
 	// unless it's inside another app's bundle.
-	if (IsInApplicationsFolder(bundlePath) && !isNestedApplication) return;
+	BOOL isInRequiredApplicationsFolder = forceMove ? IsInSystemApplicationsFolder(bundlePath) : IsInApplicationsFolder(bundlePath);
+	if (isInRequiredApplicationsFolder && !isNestedApplication) return;
 
 	// OK, looks like we'll need to do a move - set the status variable appropriately
 	MoveInProgress = YES;
@@ -98,7 +104,13 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 
 	// Since we are good to go, get the preferred installation directory.
 	BOOL installToUserApplications = NO;
-	NSString *applicationsDirectory = PreferredInstallLocation(&installToUserApplications);
+	NSString *applicationsDirectory = nil;
+	if (forceMove) {
+		applicationsDirectory = [[NSSearchPathForDirectoriesInDomains(NSApplicationDirectory, NSLocalDomainMask, YES) lastObject] stringByResolvingSymlinksInPath];
+		installToUserApplications = NO;
+	} else {
+		applicationsDirectory = PreferredInstallLocation(&installToUserApplications);
+	}
 	NSString *bundleName = [bundlePath lastPathComponent];
 	NSString *destinationPath = [applicationsDirectory stringByAppendingPathComponent:bundleName];
 
@@ -115,7 +127,7 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 		if (@available(macOS 15.5, *)) {
 			[alert setMessageText:(kStrMoveApplicationQuestionTitle)];
 		} else {
-			[alert setMessageText:(installToUserApplications ? kStrMoveApplicationQuestionTitleHome : kStrMoveApplicationQuestionTitle)];
+			[alert setMessageText:(forceMove ? kStrMoveApplicationQuestionTitle : (installToUserApplications ? kStrMoveApplicationQuestionTitleHome : kStrMoveApplicationQuestionTitle))];
 		}
 
 		informativeText = kStrMoveApplicationQuestionMessage;
@@ -133,20 +145,23 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 		// Add accept button
 		[alert addButtonWithTitle:kStrMoveApplicationButtonMove];
 
-		// Add deny button
-		NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
-		[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
+		if (!forceMove) {
+			// Add deny button
+			NSButton *cancelButton = [alert addButtonWithTitle:kStrMoveApplicationButtonDoNotMove];
+			[cancelButton setKeyEquivalent:[NSString stringWithFormat:@"%C", 0x1b]]; // Escape key
+		}
 
+		NSString *finalInformativeText = (customized == nil || customized.length == 0) ? informativeText : customized;
 		if (@available(macOS 15.5, *)) {
-			[alert setInformativeText:(customized == nil || customized.length == 0) ? informativeText : customized];
+			[alert setInformativeText:finalInformativeText];
 
 			// Setup suppression button
 			[alert setShowsSuppressionButton:NO];
 		} else {
-			[alert setInformativeText:informativeText];
+			[alert setInformativeText:(forceMove ? finalInformativeText : informativeText)];
 
 			// Setup suppression button
-			[alert setShowsSuppressionButton:YES];
+			[alert setShowsSuppressionButton:(!forceMove)];
 		}
 
 		if (PFUseSmallAlertSuppressCheckbox) {
@@ -161,7 +176,8 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 		[NSApp activateIgnoringOtherApps:YES];
 	}
 
-	if ([alert runModal] == NSAlertFirstButtonReturn) {
+	NSModalResponse alertResponse = [alert runModal];
+	if (alertResponse == NSAlertFirstButtonReturn) {
 		NSLog(@"INFO -- Moving myself to the Applications folder");
 
 		// Move
@@ -172,6 +188,7 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 				if (authorizationCanceled) {
 					NSLog(@"INFO -- Not moving because user canceled authorization");
 					MoveInProgress = NO;
+					if (forceMove) exit(0);
 					return;
 				}
 				else {
@@ -224,6 +241,10 @@ void PFMoveToApplicationsFolderIfNecessary(NSString* customized) {
 		MoveInProgress = NO;
 		exit(0);
 	}
+	else if (forceMove) {
+		MoveInProgress = NO;
+		exit(0);
+	}
 	// Save the alert suppress preference if checked
 	else if ([[alert suppressionButton] state] == NSControlStateValueOn) {
 		[[NSUserDefaults standardUserDefaults] setBool:YES forKey:AlertSuppressKey];
@@ -239,6 +260,7 @@ fail:
 		[alert setMessageText:kStrMoveApplicationCouldNotMove];
 		[alert runModal];
 		MoveInProgress = NO;
+		if (forceMove) exit(0);
 	}
 }
 
@@ -291,6 +313,15 @@ static BOOL IsInApplicationsFolder(NSString *path) {
 
 	// Also, handle the case that the user has some other Application directory (perhaps on a separate data partition).
 	if ([[path pathComponents] containsObject:@"Applications"]) return YES;
+
+	return NO;
+}
+
+static BOOL IsInSystemApplicationsFolder(NSString *path) {
+	NSArray *applicationDirs = NSSearchPathForDirectoriesInDomains(NSApplicationDirectory, NSLocalDomainMask, YES);
+	for (NSString *appDir in applicationDirs) {
+		if ([path hasPrefix:appDir]) return YES;
+	}
 
 	return NO;
 }
