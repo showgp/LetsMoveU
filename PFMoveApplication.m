@@ -52,6 +52,8 @@ static BOOL MoveInProgress = NO;
 static NSString *PreferredInstallLocation(BOOL *isUserDirectory);
 static BOOL IsInApplicationsFolder(NSString *path);
 static BOOL IsInSystemApplicationsFolder(NSString *path);
+static BOOL IsPathInDirectory(NSString *path, NSString *directoryPath);
+static BOOL IsPathEqualToOrInsideDirectory(NSString *path, NSString *directoryPath);
 static BOOL IsInDownloadsFolder(NSString *path);
 static BOOL IsApplicationAtPathRunning(NSString *path);
 static BOOL IsApplicationAtPathNested(NSString *path);
@@ -308,7 +310,7 @@ static BOOL IsInApplicationsFolder(NSString *path) {
 	// Check all the normal Application directories
 	NSArray *applicationDirs = NSSearchPathForDirectoriesInDomains(NSApplicationDirectory, NSAllDomainsMask, YES);
 	for (NSString *appDir in applicationDirs) {
-		if ([path hasPrefix:appDir]) return YES;
+		if (IsPathInDirectory(path, appDir)) return YES;
 	}
 
 	// Also, handle the case that the user has some other Application directory (perhaps on a separate data partition).
@@ -320,10 +322,43 @@ static BOOL IsInApplicationsFolder(NSString *path) {
 static BOOL IsInSystemApplicationsFolder(NSString *path) {
 	NSArray *applicationDirs = NSSearchPathForDirectoriesInDomains(NSApplicationDirectory, NSLocalDomainMask, YES);
 	for (NSString *appDir in applicationDirs) {
-		if ([path hasPrefix:appDir]) return YES;
+		if (IsPathInDirectory(path, appDir)) return YES;
 	}
 
 	return NO;
+}
+
+static BOOL IsPathInDirectory(NSString *path, NSString *directoryPath) {
+	if ([path length] == 0 || [directoryPath length] == 0) return NO;
+
+	NSString *standardizedPath = [path stringByStandardizingPath];
+	NSString *standardizedDirectoryPath = [directoryPath stringByStandardizingPath];
+	NSURL *itemURL = [NSURL fileURLWithPath:standardizedPath];
+	NSURL *directoryURL = [NSURL fileURLWithPath:standardizedDirectoryPath isDirectory:YES];
+	NSURLRelationship relationship = NSURLRelationshipOther;
+	if ([[NSFileManager defaultManager] getRelationship:&relationship
+									   ofDirectoryAtURL:directoryURL
+											toItemAtURL:itemURL
+												 error:nil] &&
+		(relationship == NSURLRelationshipContains || relationship == NSURLRelationshipSame)) {
+		return YES;
+	}
+
+	if (IsPathEqualToOrInsideDirectory(standardizedPath, standardizedDirectoryPath)) return YES;
+	if ([standardizedDirectoryPath isEqualToString:@"/Applications"] &&
+		IsPathEqualToOrInsideDirectory(standardizedPath, @"/System/Volumes/Data/Applications")) {
+		return YES;
+	}
+
+	return NO;
+}
+
+static BOOL IsPathEqualToOrInsideDirectory(NSString *path, NSString *directoryPath) {
+	NSString *standardizedPath = [path stringByStandardizingPath];
+	NSString *standardizedDirectoryPath = [directoryPath stringByStandardizingPath];
+	if ([standardizedPath isEqualToString:standardizedDirectoryPath]) return YES;
+	NSString *directoryPrefix = [standardizedDirectoryPath hasSuffix:@"/"] ? standardizedDirectoryPath : [standardizedDirectoryPath stringByAppendingString:@"/"];
+	return [standardizedPath hasPrefix:directoryPrefix];
 }
 
 static BOOL IsInDownloadsFolder(NSString *path) {
